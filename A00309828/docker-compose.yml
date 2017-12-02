@@ -1,0 +1,40 @@
+version: '2'
+services:
+  consul:
+    image: consul
+    container_name: consul
+    ports:
+    - 8500:8500
+
+  registrator:
+    image: gliderlabs/registrator:latest
+    container_name: registrador
+    links:
+      - consul:consul
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock
+    command: -internal consul://consul:8500
+
+  balanceador:
+    build: haproxy/.
+    container_name: haproxy
+    labels:
+      - "SERVICE_NAME=Balanceador"
+    ports:
+      - "80:80"
+    links:
+      - consul:consul
+    command: consul-template -consul-addr=consul:8500 -template="/etc/haproxy/haproxy.ctmpl:/etc/haproxy/haproxy.cfg:/usr/sbin/haproxy -f /etc/haproxy/haproxy.cfg -D -p /var/run/haproxy.pid"
+
+  web:
+    build: web/.
+    labels:
+      - "SERVICE_NAME=Python"
+    ports:
+      - "5000"
+
+  redis:
+    image: "redis:alpine"
+    container_name: redis
+    ports:
+      - "6379"
